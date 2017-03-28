@@ -8,7 +8,7 @@ use WWW::Curl::Easy;
 
 my $verbose;
 my $domain;
-my $search_term = "cat";
+my $search_term = "test";
 my $look_for;
 
 GetOptions(
@@ -55,6 +55,12 @@ if ( $retcode == 0 ) {
 
     if ( $response_code ne '200' ) {
         say "Bad Response Code!: $response_code" if $verbose;
+        exit 1;
+    }
+
+    if ( index( $response_body, 'No results found!' ) != -1 ) {
+        say "Page returned 'No results found!'";
+        exit 1;
     }
 
     if ( index( $response_body, $look_for ) != -1 ) {
