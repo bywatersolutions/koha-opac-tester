@@ -4,54 +4,85 @@ use Modern::Perl;
 
 use Getopt::Long;
 use URI::Escape qw( uri_escape );
-use WWW::Curl::Easy;
+use LWP::UserAgent;
+
+my $url;
 
 my $verbose;
 my $domain;
 my $search_term = "test";
 my $look_for;
+my $type = 'opac';
+my $username;
+my $password;
 
 GetOptions(
     "v|verbose"       => \$verbose,
     "d|domain:s"      => \$domain,
     "s|search-term:s" => \$search_term,
     "l|look-for:s"    => \$look_for,
+    "t|type:s"        => \$type,
+    "u|username:s"    => \$username,
+    "p|password:s"    => \$password,
 );
 
 $look_for ||= $search_term;
 
 unless ($domain) {
     say "-d ( --domain ) option is required";
-    exit 0;
+    exit 1;
 }
 
 unless ($search_term) {
     say "-s ( --search-term ) option is required";
-    exit 0;
+    exit 1;
+}
+
+if ( $type eq 'staff' && !( $username && $password ) ) {
+    say "-u ( --username ) and -p ( --password ) options are required when using -t ( --type ) = 'staff'";
+    exit 1;
 }
 
 $search_term = uri_escape($search_term);
 
-my $url = "https://$domain/cgi-bin/koha/opac-search.pl?q=$search_term";
+if ( $type eq 'opac' ) {
+    $url = "https://$domain/cgi-bin/koha/opac-search.pl?q=$search_term";
+}
+elsif ( $type eq 'staff' ) {
+    $url = "https://$domain/cgi-bin/koha/catalogue/search.pl?q=$search_term";
+}
+else {
+    say "-t ( --type ) option can only by 'opac' or 'staff'";
+    exit 1;
+}
 
 say "URL: $url" if $verbose;
 
-my $curl = WWW::Curl::Easy->new;
+my $ua = LWP::UserAgent->new();
+$ua->cookie_jar( {} );
 
-$curl->setopt( CURLOPT_HEADER, 1 );
-$curl->setopt( CURLOPT_URL,    $url );
+if ( $type eq 'staff' ) {
+    my $resp = $ua->post(
+        "$url/authentication",
+        {
+            userid   => $username,
+            password => $password,
+        }
+    );
 
-# A filehandle, reference to a scalar or reference to a typeglob can be used here.
-my $response_body;
-$curl->setopt( CURLOPT_WRITEDATA, \$response_body );
+    unless ( $resp->is_success ) {
+        say "An error occurred: " . $resp->status_line;
+        exit 1;
+    }
+}
 
-# Starts the actual request
-my $retcode = $curl->perform;
+my $resp          = $ua->get($url);
+my $response_code = $resp->code();
+my $response_body = $resp->decoded_content;
 
 # Looking at the results...
-if ( $retcode == 0 ) {
+if ( $resp->is_success ) {
     say "Transfer went ok" if $verbose;
-    my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);
 
     if ( $response_code ne '200' ) {
         say "Bad Response Code!: $response_code" if $verbose;
@@ -66,16 +97,13 @@ if ( $retcode == 0 ) {
     if ( index( $response_body, $look_for ) != -1 ) {
         say "Found the string '$look_for' in the returned HTML.";
         exit 0;
-    } else {
+    }
+    else {
         say "Did *not* find the string '$look_for' in the returned HTML.";
         exit 1;
     }
 }
 else {
-    # Error code, type of error, error message
-    print(  "An error happened: $retcode "
-          . $curl->strerror($retcode) . " "
-          . $curl->errbuf
-          . "\n" );
+    say "An error occurred: " . $resp->status_line;
     exit 1;
 }
