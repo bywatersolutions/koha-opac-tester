@@ -4,7 +4,7 @@ A small utility to test a Koha OPAC or staff intranet to ensure it is functionin
 This utility will search and opac and return a good status code if the site gives back a 200 and the string to look for is found.
 
 ## Usage
-test-koha-opac -v -d catalog.mylibrary.org -s "cat in the hat" -l "The Cat in the Hat"
+koha-test-search -v -d catalog.mylibrary.org -s "cat in the hat" -l "The Cat in the Hat"
 
 -v --verbose      - Prints output for puny humans ( optional )
 -d --domain       - The opac domain to be checked
