@@ -1,4 +1,4 @@
-# koha-opac-tester
+# koha-test-search
 A small utility to test a Koha OPAC or staff intranet to ensure it is functioning correctly ( for searching ).
 
 This utility will search and opac and return a good status code if the site gives back a 200 and the string to look for is found.
